@@ -15,6 +15,10 @@ return [
     */    
     
     'perfil_id' => env('PERFIL_ID_GLOBAL', null),
+    'api_principal' => [
+    'base_url' => env('API_PRINCIPAL_URL'),
+    ],
+
 
 
     'mailgun' => [
