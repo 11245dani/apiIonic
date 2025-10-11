@@ -27,9 +27,16 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
     ];
 
-    public function vehiculo()
+public function vehiculos()
 {
-    return $this->hasOne(Vehiculo::class);
+    return $this->hasMany(\App\Models\Vehiculo::class, 'perfil_id', 'perfil_id');
 }
+
+public function rutas()
+{
+    return $this->hasMany(Ruta::class, 'user_id', 'id');
+}
+
+
 
 }

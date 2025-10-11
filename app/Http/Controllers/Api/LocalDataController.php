@@ -21,31 +21,5 @@ class LocalDataController extends Controller
 
         return $q->orderBy('nombre')->paginate($per);
     }
-
-    // GET /api/vehiculos -> paginado filtro opcional por perfil_id o placa
-    public function vehiculos(Request $request)
-    {
-        $per = (int) $request->get('per_page', 15);
-        $q = Vehiculo::query();
-
-        if ($request->filled('perfil_id')) {
-            $q->where('perfil_id', $request->get('perfil_id'));
-        }
-
-        if ($request->filled('placa')) {
-            $q->where('placa', $request->get('placa'));
-        }
-
-        return $q->orderBy('id','desc')->paginate($per);
-    }
-
-    // GET /api/vehiculos/usuario/{userId}
-    public function vehiculoPorUsuario($userId)
-    {
-        $veh = Vehiculo::where('user_id', $userId)->first();
-        if (!$veh) {
-            return response()->json(null, 404);
-        }
-        return response()->json($veh);
-    }
+    
 }
