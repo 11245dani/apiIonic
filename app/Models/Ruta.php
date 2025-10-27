@@ -18,6 +18,9 @@ class Ruta extends Model
         'shape',
         'sincronizado'
     ];
+    public $incrementing = false;
+    protected $keyType = 'string';
+
 
     protected $casts = [
         'calles' => 'array',

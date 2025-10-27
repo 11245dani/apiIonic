@@ -11,16 +11,20 @@ use App\Models\Ruta;
 
 class RutaController extends Controller
 {
-    /**
-     * Crear una ruta en la API principal y guardar localmente
-     */
     public function store(Request $request)
     {
         $request->validate([
             'user_id' => 'required|exists:users,id',
             'nombre_ruta' => 'required|string|max:100',
-            'calles' => 'required|array|min:1'
+            'shape' => 'nullable',
+            'calles_ids' => 'nullable|array|min:1'
         ]);
+
+        if (!$request->filled('shape') && !$request->filled('calles_ids')) {
+            return response()->json([
+                'message' => 'Debes enviar al menos "shape" o "calles_ids".'
+            ], 400);
+        }
 
         $user = User::find($request->user_id);
         $perfil_id = $user->perfil_id ?? null;
@@ -30,50 +34,56 @@ class RutaController extends Controller
         }
 
         try {
-            // Enviar datos a la API principal
+            // 🛰 Enviar datos al servidor principal
+            $payload = [
+                'nombre_ruta' => $request->nombre_ruta,
+                'perfil_id' => $perfil_id,
+            ];
+
+            if ($request->filled('shape')) {
+                $payload['shape'] = is_string($request->shape)
+                    ? $request->shape
+                    : json_encode($request->shape);
+            } elseif ($request->filled('calles_ids')) {
+                $payload['calles_ids'] = $request->calles_ids;
+            }
+
             $response = Http::withoutVerifying()
-                ->post('http://apirecoleccion.gonzaloandreslucio.com/api/rutas', [
-                    'nombre_ruta' => $request->nombre_ruta,
-                    'calles' => $request->calles,
-                    'perfil_id' => $perfil_id
-                ]);
+                ->post('http://apirecoleccion.gonzaloandreslucio.com/api/rutas', $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
 
-                // Guardar localmente
                 $ruta = Ruta::create([
                     'api_id' => $data['id'] ?? null,
                     'user_id' => $user->id,
                     'perfil_id' => $perfil_id,
                     'nombre_ruta' => $data['nombre_ruta'] ?? $request->nombre_ruta,
-                    'calles' => $data['calles'] ?? $request->calles,
-                    'shape' => $data['shape'] ?? null,
+                    'calles' => $data['calles'] ?? [],
+                    'shape' => $data['shape'] ?? $request->shape,
                     'sincronizado' => true,
                 ]);
 
                 return response()->json([
-                    'message' => 'Ruta creada correctamente en API principal y guardada localmente',
+                    'message' => 'Ruta creada correctamente en la API principal y guardada localmente',
                     'ruta' => $ruta
                 ], 201);
             }
 
             return response()->json([
                 'message' => 'Error al crear la ruta en la API principal',
-                'error' => $response->body()
+                'error' => $response->body(),
             ], $response->status());
         } catch (\Exception $e) {
-            // En caso de error, guardar localmente para sincronizar después
+            Log::error('Error al conectar con API principal', ['error' => $e->getMessage()]);
+
             $ruta = Ruta::create([
                 'user_id' => $user->id,
                 'perfil_id' => $perfil_id,
                 'nombre_ruta' => $request->nombre_ruta,
-                'calles' => $request->calles,
+                'calles' => [],
+                'shape' => $request->shape,
                 'sincronizado' => false,
-            ]);
-
-            Log::error('Error al conectar con API principal', [
-                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
@@ -84,69 +94,84 @@ class RutaController extends Controller
         }
     }
 
-    /**
-     * Obtener rutas desde la API principal y sincronizarlas localmente
-     */
-    public function syncFromPrincipal(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-        ]);
+    // ===============================================================
+// ============= SINCRONIZAR RUTAS DESDE API PRINCIPAL ============
+// ===============================================================
+public function syncFromPrincipal()
+{
+    try {
+        // Obtener todos los usuarios con perfil vinculado
+        $usuarios = \App\Models\User::whereNotNull('perfil_id')->get();
 
-        $user = User::find($request->user_id);
-        $perfil_id = $user->perfil_id ?? null;
-
-        if (!$perfil_id) {
-            return response()->json(['message' => 'El usuario no tiene perfil_id asociado'], 400);
+        if ($usuarios->isEmpty()) {
+            return response()->json(['message' => 'No hay usuarios con perfil_id para sincronizar'], 404);
         }
 
-        try {
+        $totalSincronizadas = 0;
+        $rutasGuardadas = [];
+
+        foreach ($usuarios as $user) {
+            $perfil_id = $user->perfil_id;
+
+            // Llamada a la API principal
             $response = Http::withoutVerifying()
-                ->get('http://apirecoleccion.gonzaloandreslucio.com/api/rutas', [
-                    'perfil_id' => $perfil_id
-                ]);
+                ->get("http://apirecoleccion.gonzaloandreslucio.com/api/rutas/perfil/{$perfil_id}");
 
             if (!$response->successful()) {
-                return response()->json([
-                    'message' => 'Error al obtener rutas desde API principal',
-                    'error' => $response->body(),
-                ], $response->status());
+                \Log::warning("Fallo sincronizando rutas para perfil {$perfil_id}: " . $response->body());
+                continue;
             }
 
             $data = $response->json();
-            $rutasGuardadas = [];
 
-            if (isset($data['data']) && is_array($data['data'])) {
-                foreach ($data['data'] as $rutaData) {
-                    $ruta = Ruta::updateOrCreate(
-                        ['api_id' => $rutaData['id']],
-                        [
-                            'user_id' => $user->id,
-                            'perfil_id' => $perfil_id,
-                            'nombre_ruta' => $rutaData['nombre_ruta'] ?? '',
-                            'calles' => $rutaData['calles'] ?? [],
-                            'shape' => $rutaData['shape'] ?? null,
-                            'sincronizado' => true,
-                        ]
-                    );
-                    $rutasGuardadas[] = $ruta;
-                }
+            if (!isset($data['rutas']) || !is_array($data['rutas'])) {
+                \Log::warning("Respuesta inválida al sincronizar perfil {$perfil_id}: " . json_encode($data));
+                continue;
             }
 
-            return response()->json([
-                'message' => 'Rutas sincronizadas correctamente desde la API principal',
-                'cantidad' => count($rutasGuardadas),
-                'calles' => $data,
-                'perfil_id' => $perfil_id,
-                'rutas_guardadas' => $rutasGuardadas
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error al sincronizar rutas',
-                'error' => $e->getMessage(),
-            ], 500);
+            foreach ($data['rutas'] as $rutaRemota) {
+                // Buscar si ya existe localmente
+                $rutaLocal = \App\Models\Ruta::where('api_id', $rutaRemota['id'])->first();
+
+                if ($rutaLocal) {
+                    $rutaLocal->update([
+                        'nombre_ruta' => $rutaRemota['nombre_ruta'] ?? $rutaLocal->nombre_ruta,
+                        'calles' => $rutaRemota['calles'] ?? [],
+                        'shape' => $rutaRemota['shape'] ?? null,
+                        'sincronizado' => true,
+                    ]);
+                } else {
+                    $rutaLocal = \App\Models\Ruta::create([
+                        'api_id' => $rutaRemota['id'] ?? null,
+                        'user_id' => $user->id,
+                        'perfil_id' => $perfil_id,
+                        'nombre_ruta' => $rutaRemota['nombre_ruta'] ?? 'Sin nombre',
+                        'calles' => $rutaRemota['calles'] ?? [],
+                        'shape' => $rutaRemota['shape'] ?? null,
+                        'sincronizado' => true,
+                    ]);
+                }
+
+                $rutasGuardadas[] = $rutaLocal;
+                $totalSincronizadas++;
+            }
         }
+
+        return response()->json([
+            'message' => 'Rutas sincronizadas correctamente desde la API principal',
+            'cantidad' => $totalSincronizadas,
+            'rutas' => $rutasGuardadas
+        ]);
+    } catch (\Exception $e) {
+        \Log::error('Error al sincronizar rutas desde API principal', ['error' => $e->getMessage()]);
+
+        return response()->json([
+            'message' => 'Error al sincronizar rutas desde API principal',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     /**
      * Listar rutas locales

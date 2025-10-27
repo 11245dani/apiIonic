@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\VehiculoController;
 use App\Http\Controllers\Api\SyncController;
 use App\Http\Controllers\Api\LocalDataController;
 use App\Http\Controllers\Api\RutaController;
+use App\Http\Controllers\Api\RecorridoController;
 
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -31,6 +32,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/sync/calles', [SyncController::class,'syncCalles']);
     Route::get('/calles', [LocalDataController::class,'calles']);
 });
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/misrecorridos', [RecorridoController::class, 'misRecorridos']);
+    Route::post('/recorridos/iniciar', [RecorridoController::class, 'iniciar']);
+    Route::post('/recorridos/{recorrido}/posiciones', [RecorridoController::class, 'registrarPosicion']);
+    Route::get('/recorridos/{recorrido}/posiciones', [RecorridoController::class, 'obtenerPosiciones']);
+    Route::post('/recorridos/{recorrido}/finalizar', [RecorridoController::class, 'finalizar']);
+    Route::get('/recorridos/sincronizar', [RecorridoController::class, 'sincronizarEstados']);
+});
+
+
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     $user = $request->user();

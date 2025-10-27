@@ -8,6 +8,10 @@ class Calle extends Model {
     protected $fillable = [
         'api_id','nombre','barrio','meta'
     ];
+
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     protected $casts = [
         'meta' => 'array'
     ];

@@ -8,6 +8,9 @@ class Vehiculo extends Model {
     protected $fillable = [
         'api_id','user_id','perfil_id','placa','marca','modelo','capacidad','tipo_combustible','activo','sincronizado','api_created_at','api_updated_at','meta'
     ];
+    public $incrementing = false;
+    protected $keyType = 'string';
+
     protected $casts = [
         'meta' => 'array',
         'activo' => 'boolean',
