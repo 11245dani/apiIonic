@@ -8,10 +8,16 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 class Kernel extends ConsoleKernel
 {
     /**
-     * Define the application's command schedule.
+     * Los comandos de consola registrados manualmente.
      *
-     * @param  \Illuminate\Console\Scheduling\Schedule  $schedule
-     * @return void
+     * @var array
+     */
+    protected $commands = [
+        \App\Console\Commands\SyncRutasToApiPrincipal::class,
+    ];
+
+    /**
+     * Define la programación de tareas.
      */
     protected function schedule(Schedule $schedule)
     {
@@ -19,9 +25,7 @@ class Kernel extends ConsoleKernel
     }
 
     /**
-     * Register the commands for the application.
-     *
-     * @return void
+     * Registra los comandos para la aplicación.
      */
     protected function commands()
     {

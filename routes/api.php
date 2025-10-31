@@ -53,3 +53,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json($user);
 });
 
+Route::options('{any}', function (Request $request) {
+    return response()->noContent(204);
+})->where('any', '.*');
+
+
