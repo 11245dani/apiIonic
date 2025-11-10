@@ -15,6 +15,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role_id',
         'perfil_id',
     ];
 
@@ -29,7 +30,7 @@ class User extends Authenticatable
 
 public function vehiculos()
 {
-    return $this->hasMany(\App\Models\Vehiculo::class, 'perfil_id', 'perfil_id');
+    return $this->hasMany(\App\Models\Vehiculo::class, 'user_id');
 }
 
 public function rutas()
@@ -37,6 +38,16 @@ public function rutas()
     return $this->hasMany(Ruta::class, 'user_id', 'id');
 }
 
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+    public function hasRole(string $nombre): bool
+    {
+        return $this->role && $this->role->nombre === $nombre;
+    }
 
 
 }

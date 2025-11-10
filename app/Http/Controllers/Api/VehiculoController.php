@@ -11,23 +11,32 @@ use App\Models\Vehiculo;
 
 class VehiculoController extends Controller
 {
-    public function store(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'placa'   => 'required|string|max:10',
-            'marca'   => 'required|string|max:50',
-            'modelo'  => 'required|string|max:10',
-            'activo'  => 'required|boolean',
-        ]);
+   public function store(Request $request)
+{
+    $request->validate([
+        'user_id' => 'required|exists:users,id',
+        'placa'   => 'required|string|max:10',
+        'marca'   => 'required|string|max:50',
+        'modelo'  => 'required|string|max:10',
+        'activo'  => 'required|boolean',
+    ]);
 
-        $user = User::find($request->user_id);
-        $perfil_id = $user->perfil_id ?? null;
+    $user = User::with('role')->find($request->user_id);
 
-        if (!$perfil_id) {
-            return response()->json([
-                'message' => 'El usuario no tiene perfil_id asociado'
-            ], 400);
+    // 🚫 Bloquear creación de vehículos para ciudadanos
+    if (!$user->role || strtolower($user->role->nombre) !== 'conductor') {
+        return response()->json([
+            'message' => 'Solo los conductores pueden registrar vehículos.',
+            'rol_detectado' => $user->role->nombre ?? 'sin rol'
+        ], 403);
+    }
+
+    $perfil_id = $user->perfil_id ?? null;
+
+    if (!$perfil_id) {
+        return response()->json([
+            'message' => 'El usuario no tiene perfil_id asociado'
+        ], 400);
         }
 
         try {
@@ -98,20 +107,29 @@ class VehiculoController extends Controller
         }
     }
 
-    public function syncFromPrincipal(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required|exists:users,id',
-        ]);
+        public function syncFromPrincipal(Request $request)
+        {
+            $request->validate([
+                'user_id' => 'required|exists:users,id',
+            ]);
 
-        $user = User::find($request->user_id);
-        $perfil_id = $user->perfil_id ?? null;
+            $user = User::with('role')->find($request->user_id);
 
-        if (!$perfil_id) {
-            return response()->json([
-                'message' => 'El usuario no tiene perfil_id asociado'
-            ], 400);
-        }
+            // 🚫 Evitar que un ciudadano tenga vehículos
+            if (!$user->role || strtolower($user->role->nombre) !== 'conductor') {
+                return response()->json([
+                    'message' => 'Solo los conductores pueden tener vehículos asociados.',
+                    'rol_detectado' => $user->role->nombre ?? 'sin rol'
+                ], 403);
+            }
+
+            $perfil_id = $user->perfil_id ?? null;
+
+            if (!$perfil_id) {
+                return response()->json([
+                    'message' => 'El usuario no tiene perfil_id asociado'
+                ], 400);
+            }
 
         try {
             // ✅ 1. Obtener vehículos desde la API principal

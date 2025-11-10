@@ -15,6 +15,7 @@ class RegisterRequest extends FormRequest
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users',
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'rol' => 'required|in:ciudadano,conductor', // 👈 solo esos dos
         ];
     }
 }

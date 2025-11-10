@@ -35,11 +35,18 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/misrecorridos', [RecorridoController::class, 'misRecorridos']);
-    Route::post('/recorridos/iniciar', [RecorridoController::class, 'iniciar']);
-    Route::post('/recorridos/{recorrido}/posiciones', [RecorridoController::class, 'registrarPosicion']);
+    //Route::post('/recorridos/iniciar', [RecorridoController::class, 'iniciar']);
+    //Route::post('/recorridos/{recorrido}/posiciones', [RecorridoController::class, 'registrarPosicion']);
     Route::get('/recorridos/{recorrido}/posiciones', [RecorridoController::class, 'obtenerPosiciones']);
-    Route::post('/recorridos/{recorrido}/finalizar', [RecorridoController::class, 'finalizar']);
+    //Route::post('/recorridos/{recorrido}/finalizar', [RecorridoController::class, 'finalizar']);
     Route::get('/recorridos/sincronizar', [RecorridoController::class, 'sincronizarEstados']);
+});
+
+
+Route::middleware(['auth:sanctum', 'conductor'])->group(function () {
+    Route::post('/recorridos/iniciar', [RecorridoController::class, 'iniciar']);
+    Route::post('/recorridos/{id}/posiciones', [RecorridoController::class, 'registrarPosicion']);
+    Route::post('/recorridos/{id}/finalizar', [RecorridoController::class, 'finalizar']);
 });
 
 
@@ -47,11 +54,11 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     $user = $request->user();
 
-    // Cargar los vehículos relacionados
-    $user->load('vehiculos');
-    $user->load('rutas');
+    $user->load(['role', 'vehiculos', 'rutas']); // 👈 agrega aquí 'role'
+
     return response()->json($user);
 });
+
 
 Route::options('{any}', function (Request $request) {
     return response()->noContent(204);

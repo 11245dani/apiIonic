@@ -100,7 +100,6 @@ class RutaController extends Controller
 public function syncFromPrincipal()
 {
     try {
-        // Obtener todos los usuarios con perfil vinculado
         $usuarios = \App\Models\User::whereNotNull('perfil_id')->get();
 
         if ($usuarios->isEmpty()) {
@@ -113,9 +112,11 @@ public function syncFromPrincipal()
         foreach ($usuarios as $user) {
             $perfil_id = $user->perfil_id;
 
-            // Llamada a la API principal
+            // ✅ Nota: aquí uso directamente la ruta que tú mostraste
             $response = Http::withoutVerifying()
-                ->get("http://apirecoleccion.gonzaloandreslucio.com/api/rutas/perfil/{$perfil_id}");
+                ->get("http://apirecoleccion.gonzaloandreslucio.com/api/rutas", [
+                    'perfil_id' => $perfil_id
+                ]);
 
             if (!$response->successful()) {
                 \Log::warning("Fallo sincronizando rutas para perfil {$perfil_id}: " . $response->body());
@@ -124,20 +125,21 @@ public function syncFromPrincipal()
 
             $data = $response->json();
 
-            if (!isset($data['rutas']) || !is_array($data['rutas'])) {
-                \Log::warning("Respuesta inválida al sincronizar perfil {$perfil_id}: " . json_encode($data));
+            // ✅ La API principal devuelve "data", no "rutas"
+            $rutasRemotas = $data['data'] ?? [];
+
+            if (!is_array($rutasRemotas) || empty($rutasRemotas)) {
+                \Log::warning("Respuesta sin rutas válidas para perfil {$perfil_id}: " . json_encode($data));
                 continue;
             }
 
-            foreach ($data['rutas'] as $rutaRemota) {
-                // Buscar si ya existe localmente
+            foreach ($rutasRemotas as $rutaRemota) {
                 $rutaLocal = \App\Models\Ruta::where('api_id', $rutaRemota['id'])->first();
 
                 if ($rutaLocal) {
                     $rutaLocal->update([
                         'nombre_ruta' => $rutaRemota['nombre_ruta'] ?? $rutaLocal->nombre_ruta,
-                        'calles' => $rutaRemota['calles'] ?? [],
-                        'shape' => $rutaRemota['shape'] ?? null,
+                        'shape' => $rutaRemota['shape'] ?? $rutaLocal->shape,
                         'sincronizado' => true,
                     ]);
                 } else {
@@ -146,7 +148,6 @@ public function syncFromPrincipal()
                         'user_id' => $user->id,
                         'perfil_id' => $perfil_id,
                         'nombre_ruta' => $rutaRemota['nombre_ruta'] ?? 'Sin nombre',
-                        'calles' => $rutaRemota['calles'] ?? [],
                         'shape' => $rutaRemota['shape'] ?? null,
                         'sincronizado' => true,
                     ]);
@@ -171,7 +172,6 @@ public function syncFromPrincipal()
         ], 500);
     }
 }
-
 
     /**
      * Listar rutas locales
