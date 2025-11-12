@@ -48,12 +48,12 @@ class Recorrido extends Model
 
     public function ruta()
     {
-        return $this->belongsTo(Ruta::class, 'ruta_id', 'id');
+        return $this->belongsTo(Ruta::class, 'ruta_id', 'api_id');
     }
 
     public function vehiculo()
     {
-        return $this->belongsTo(Vehiculo::class, 'vehiculo_id', 'id');
+        return $this->belongsTo(Vehiculo::class, 'vehiculo_id', 'api_id');
     }
 
     public function user()

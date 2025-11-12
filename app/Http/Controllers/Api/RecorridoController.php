@@ -8,61 +8,128 @@ use App\Models\Recorrido;
 use App\Models\Posicion;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+// ✅ IMPORTA LOS MODELOS CORRECTAMENTE
+use App\Models\Vehiculo;
+use App\Models\Ruta;
 
 class RecorridoController extends Controller
 {
     // ===========================================================
     // 🔹 Obtener recorridos del usuario desde la API principal
     // ===========================================================
-    public function misRecorridos(Request $request)
-    {
-        $user = $request->user();
 
-        if (!$user->perfil_id) {
-            return response()->json(['message' => 'El usuario no tiene perfil_id'], 400);
-        }
+public function misRecorridos(Request $request)
+{
+    $user = $request->user();
 
-        try {
-            $response = Http::withoutVerifying()
-                ->get('http://apirecoleccion.gonzaloandreslucio.com/api/misrecorridos', [
-                    'perfil_id' => $user->perfil_id
-                ]);
+    if (!$user->perfil_id) {
+        return response()->json(['message' => 'El usuario no tiene perfil_id'], 400);
+    }
 
-            if (!$response->successful()) {
-                return response()->json([
-                    'message' => 'Error al obtener recorridos desde API principal',
-                    'error' => $response->body(),
-                ], $response->status());
-            }
-
-            $data = $response->json()['data'] ?? [];
-            $recorridosGuardados = [];
-
-            foreach ($data as $recRemoto) {
-                $recLocal = Recorrido::updateOrCreate(
-                    ['api_id' => $recRemoto['id']],
-                    [
-                        'ruta_id' => $recRemoto['ruta_id'] ?? null,
-                        'vehiculo_id' => $recRemoto['vehiculo_id'] ?? null,
-                        'perfil_id' => $recRemoto['perfil_id'] ?? null,
-                        'user_id' => $user->id,
-                        'estado' => strtolower($recRemoto['estado']) == 'completado' ? 'finalizado' : 'en_curso',
-                    ]
-                );
-                $recorridosGuardados[] = $recLocal;
-            }
-
-            return response()->json([
-                'message' => 'Recorridos sincronizados correctamente',
-                'recorridos' => $recorridosGuardados,
+    try {
+        $response = Http::withoutVerifying()
+            ->get('http://apirecoleccion.gonzaloandreslucio.com/api/misrecorridos', [
+                'perfil_id' => $user->perfil_id
             ]);
-        } catch (\Exception $e) {
+
+        if (!$response->successful()) {
             return response()->json([
                 'message' => 'Error al obtener recorridos desde API principal',
-                'error' => $e->getMessage(),
-            ], 500);
+                'error' => $response->body(),
+            ], $response->status());
         }
+
+        $data = $response->json()['data'] ?? [];
+        $recorridosGuardados = [];
+
+        foreach ($data as $recRemoto) {
+            // 🔹 Sincronizar vehículo si existe ID remoto
+            $vehiculo = null;
+            if (!empty($recRemoto['vehiculo_id'])) {
+                $vehiculo = Vehiculo::firstOrCreate(
+                    ['api_id' => $recRemoto['vehiculo_id']],
+                    [
+                        'placa' => 'DESCONOCIDA',
+                        'marca' => 'SIN_MARCA',
+                        'modelo' => 'SIN_MODELO',
+                        'user_id' => $user->id,
+                        'perfil_id' => $user->perfil_id,
+                        'activo' => true,
+                        'sincronizado' => true,
+                    ]
+                );
+            }
+
+            // 🔹 Sincronizar ruta si existe ID remoto
+            $ruta = null;
+            if (!empty($recRemoto['ruta_id'])) {
+                $ruta = Ruta::firstOrCreate(
+                    ['api_id' => $recRemoto['ruta_id']],
+                    [
+                        'nombre_ruta' => 'Ruta sin nombre',
+                        'user_id' => $user->id,
+                        'perfil_id' => $user->perfil_id,
+                        'sincronizado' => true,
+                    ]
+                );
+            }
+
+            // 🔹 Crear o actualizar recorrido local
+            $recLocal = Recorrido::updateOrCreate(
+                ['api_id' => $recRemoto['id']],
+                [
+                    'ruta_id' => $ruta?->api_id,
+                    'vehiculo_id' => $vehiculo?->api_id,
+                    'perfil_id' => $user->perfil_id,
+                    'user_id' => $user->id,
+                    'estado' => strtolower($recRemoto['estado']) === 'completado' ? 'finalizado' : 'en_curso',
+                ]
+            );
+
+            $recorridosGuardados[] = $recLocal->id;
+        }
+
+        // 🔹 Recuperar recorridos enriquecidos desde la DB local
+        $recorridos = Recorrido::with([
+            'vehiculo.user.role',
+            'ruta'
+        ])
+        ->whereIn('id', $recorridosGuardados)
+        ->get()
+        ->map(function ($rec) {
+            return [
+                'id' => $rec->id,
+                'api_id' => $rec->api_id,
+                'estado' => $rec->estado,
+                'vehiculo' => [
+                    'id' => $rec->vehiculo->id ?? null,
+                    'placa' => $rec->vehiculo->placa ?? null,
+                ],
+                'usuario' => [
+                    'id' => $rec->vehiculo->user->id ?? null,
+                    'nombre' => $rec->vehiculo->user->name ?? null,
+                    'rol' => $rec->vehiculo->user->role->nombre ?? null,
+                ],
+                'ruta' => [
+                    'id' => $rec->ruta->id ?? null,
+                    'nombre' => $rec->ruta->nombre_ruta ?? null,
+                ],
+                'created_at' => $rec->created_at,
+                'updated_at' => $rec->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'message' => 'Recorridos sincronizados correctamente',
+            'recorridos' => $recorridos,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error al obtener recorridos desde API principal',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
 
     // ===========================================================
     // 🔹 Iniciar recorrido
