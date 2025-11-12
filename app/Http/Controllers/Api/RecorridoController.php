@@ -293,4 +293,47 @@ public function misRecorridos(Request $request)
             'cantidad' => $actualizados
         ]);
     }
+
+    // ===========================================================
+// 🔹 Obtener un recorrido específico por ID (local o api_id)
+// ===========================================================
+public function show(Request $request, $id)
+{
+    $user = $request->user();
+    if (!$user->perfil_id) {
+        return response()->json(['error' => 'El usuario no tiene perfil_id asociado'], 400);
+    }
+
+    // Busca el recorrido por ID local o api_id
+    $recorrido = Recorrido::where('id', $id)
+        ->orWhere('api_id', $id)
+        ->where('user_id', $user->id)  // Asegura que sea del usuario actual
+        ->first();
+
+    if (!$recorrido) {
+        return response()->json(['error' => 'Recorrido no encontrado'], 404);
+    }
+
+    // Si tiene api_id, sincroniza el estado con la API remota (como en sincronizarEstados)
+    if ($recorrido->api_id) {
+        $response = Http::withoutVerifying()
+            ->get("http://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}", [
+                'perfil_id' => $user->perfil_id,
+            ]);
+
+        if ($response->successful()) {
+            $remoto = $response->json()['data'] ?? null;
+            if ($remoto) {
+                $estadoRemoto = strtolower($remoto['estado']);
+                $estadoLocal = $estadoRemoto === 'completado' ? 'finalizado' : 'en_curso';
+                if ($recorrido->estado !== $estadoLocal) {
+                    $recorrido->update(['estado' => $estadoLocal]);
+                }
+            }
+        }
+    }
+
+    // Devuelve el recorrido actualizado
+    return response()->json($recorrido);
+}
 }

@@ -33,6 +33,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/calles', [LocalDataController::class,'calles']);
 });
 
+Route::get('/recorridos/{id}', [RecorridoController::class, 'show'])->middleware('auth:sanctum');  // Asume autenticación
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/misrecorridos', [RecorridoController::class, 'misRecorridos']);
     //Route::post('/recorridos/iniciar', [RecorridoController::class, 'iniciar']);
