@@ -50,7 +50,7 @@ class VehiculoController extends Controller
 
             $apiResponse = Http::withoutVerifying()
                 ->withHeaders(['Accept' => 'application/json'])
-                ->post('http://apirecoleccion.gonzaloandreslucio.com/api/vehiculos', [
+                ->post('https://apirecoleccion.gonzaloandreslucio.com/api/vehiculos', [
                     'placa'      => $request->placa,
                     'marca'      => $request->marca,
                     'modelo'     => $request->modelo,
@@ -95,7 +95,7 @@ class VehiculoController extends Controller
     public function index()
     {
         try {
-            $response = Http::withoutVerifying()->get('http://apirecoleccion.gonzaloandreslucio.com/api/vehiculos');
+            $response = Http::withoutVerifying()->get('https://apirecoleccion.gonzaloandreslucio.com/api/vehiculos');
 
             if ($response->successful()) {
                 return $response->json();
@@ -134,7 +134,7 @@ class VehiculoController extends Controller
         try {
             // ✅ 1. Obtener vehículos desde la API principal
             $response = Http::withoutVerifying()->get(
-                'http://apirecoleccion.gonzaloandreslucio.com/api/vehiculos',
+                'https://apirecoleccion.gonzaloandreslucio.com/api/vehiculos',
                 ['perfil_id' => $perfil_id]
             );
 
@@ -228,7 +228,7 @@ class VehiculoController extends Controller
         // 🔹 Eliminar en API principal
         $apiResponse = Http::withoutVerifying()
             ->withHeaders(['Accept' => 'application/json'])
-            ->delete("http://apirecoleccion.gonzaloandreslucio.com/api/vehiculos/{$apiId}");
+            ->delete("https://apirecoleccion.gonzaloandreslucio.com/api/vehiculos/{$apiId}");
 
         Log::info('Respuesta eliminación API principal', [
             'status' => $apiResponse->status(),

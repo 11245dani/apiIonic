@@ -49,7 +49,7 @@ class RutaController extends Controller
             }
 
             $response = Http::withoutVerifying()
-                ->post('http://apirecoleccion.gonzaloandreslucio.com/api/rutas', $payload);
+                ->post('https://apirecoleccion.gonzaloandreslucio.com/api/rutas', $payload);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -114,7 +114,7 @@ public function syncFromPrincipal()
 
             // ✅ Nota: aquí uso directamente la ruta que tú mostraste
             $response = Http::withoutVerifying()
-                ->get("http://apirecoleccion.gonzaloandreslucio.com/api/rutas", [
+                ->get("https://apirecoleccion.gonzaloandreslucio.com/api/rutas", [
                     'perfil_id' => $perfil_id
                 ]);
 

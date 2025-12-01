@@ -61,6 +61,7 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json($user);
 });
 
+Route::middleware('auth:sanctum')->get('/recorridos', [RecorridoController::class, 'index']);
 
 Route::options('{any}', function (Request $request) {
     return response()->noContent(204);

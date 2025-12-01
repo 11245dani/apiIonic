@@ -28,7 +28,7 @@ public function misRecorridos(Request $request)
 
     try {
         $response = Http::withoutVerifying()
-            ->get('http://apirecoleccion.gonzaloandreslucio.com/api/misrecorridos', [
+            ->get('https://apirecoleccion.gonzaloandreslucio.com/api/misrecorridos', [
                 'perfil_id' => $user->perfil_id
             ]);
 
@@ -154,7 +154,7 @@ public function misRecorridos(Request $request)
         ]);
 
         $res = Http::withoutVerifying()
-            ->post("http://apirecoleccion.gonzaloandreslucio.com/api/recorridos/iniciar", $data);
+            ->post("https://apirecoleccion.gonzaloandreslucio.com/api/recorridos/iniciar", $data);
 
         if ($res->successful()) {
             $api = $res->json();
@@ -189,7 +189,7 @@ public function misRecorridos(Request $request)
 
         if ($recorrido->api_id) {
             Http::withoutVerifying()->post(
-                "http://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}/posiciones",
+                "https://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}/posiciones",
                 [
                     'lat' => $data['latitud'],
                     'lon' => $data['longitud'],
@@ -221,7 +221,7 @@ public function misRecorridos(Request $request)
             ->firstOrFail();
 
         $response = Http::withoutVerifying()
-            ->get("http://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}/posiciones", [
+            ->get("https://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}/posiciones", [
                 'perfil_id' => $recorrido->perfil_id,
             ]);
 
@@ -239,7 +239,7 @@ public function misRecorridos(Request $request)
 
         if ($recorrido->api_id) {
             Http::withoutVerifying()->post(
-                "http://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}/finalizar",
+                "https://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}/finalizar",
                 ['perfil_id' => $recorrido->perfil_id]
             );
         }
@@ -270,7 +270,7 @@ public function misRecorridos(Request $request)
             if (!$recorrido->api_id) continue;
 
             $response = Http::withoutVerifying()
-                ->get("http://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}", [
+                ->get("https://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}", [
                     'perfil_id' => $user->perfil_id,
                 ]);
 
@@ -317,7 +317,7 @@ public function show(Request $request, $id)
     // Si tiene api_id, sincroniza el estado con la API remota (como en sincronizarEstados)
     if ($recorrido->api_id) {
         $response = Http::withoutVerifying()
-            ->get("http://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}", [
+            ->get("https://apirecoleccion.gonzaloandreslucio.com/api/recorridos/{$recorrido->api_id}", [
                 'perfil_id' => $user->perfil_id,
             ]);
 
@@ -336,4 +336,22 @@ public function show(Request $request, $id)
     // Devuelve el recorrido actualizado
     return response()->json($recorrido);
 }
+
+// ===========================================================
+// 🔹 Obtener todos los recorridos activos (en_curso)
+// ===========================================================
+public function index(Request $request)
+{
+    // Obtener todos los recorridos con estado 'en_curso'
+    $recorridos = Recorrido::where('estado', 'en_curso')->get();
+
+    // Opcional: enriquecer con relaciones si es necesario
+    $recorridos->load(['vehiculo', 'ruta']);
+
+    return response()->json([
+        'message' => 'Recorridos activos obtenidos correctamente',
+        'recorridos' => $recorridos,
+    ]);
 }
+}
+
